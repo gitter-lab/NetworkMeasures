@@ -1,16 +1,44 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+import json
+import pandas
+import networkx as nx
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm!')
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    # get data or refresh data source
+    # need top 3 data sources
+    # load in networks (as nx graph)
+    networks = networks 
+
+    # loop over networks
+
+    # instantiate measures
+    measures = [measures]
+
+    dict_for_df = {}
+
+    # for each network:
+    for network in networks:
+
+        row = []
+
+    #   for each network measure:
+        for measure in measures:
+
+    #       determine if whole network or nodes measure
+            if measure.type() == 'whole':
+
+    #          apply measure
+                measure_outcome = measure.apply(network, type='whole')
+            else:
+
+                measure_outcome = measure.apply(network, type='node')
+
+    #       save measure in df column
+            row.append(measure_outcome)
+
+        # save network to df
+        dict_for_df[network] = row
+
+    # dict to df
+    # save df to file
