@@ -1,6 +1,7 @@
 import json
 import pandas
 import networkx as nx
+import measures
 
 
 if __name__ == '__main__':
@@ -8,12 +9,14 @@ if __name__ == '__main__':
     # get data or refresh data source
     # need top 3 data sources
     # load in networks (as nx graph)
-    networks = networks 
+    networks = networks
 
     # loop over networks
 
     # instantiate measures
-    measures = [measures]
+    network_measures_class = measures.Network_Measures()
+    node_measures_class = measures.Node_Measures()
+    dynamic_measures_class = measures.Dynamic_Measures()
 
     dict_for_df = {}
 
@@ -22,19 +25,20 @@ if __name__ == '__main__':
 
         row = []
 
-    #   for each network measure:
+        # for each network measure:
         for measure in measures:
 
-    #       determine if whole network or nodes measure
+            # determine if whole network or nodes measure
             if measure.type() == 'whole':
 
-    #          apply measure
+                # apply measure
                 measure_outcome = measure.apply(network, type='whole')
+
             else:
 
                 measure_outcome = measure.apply(network, type='node')
 
-    #       save measure in df column
+            # save measure in df column
             row.append(measure_outcome)
 
         # save network to df
