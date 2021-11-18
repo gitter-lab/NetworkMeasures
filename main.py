@@ -46,3 +46,5 @@ if __name__ == '__main__':
 
     # dict to df
     # save df to file
+
+    # save venv to requirements.txt file
