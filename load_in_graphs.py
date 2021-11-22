@@ -213,3 +213,129 @@ def make_df(bdm_pickle_files, id_table, metabolic_data, file_out):
 
     return None
 
+def make_graph(df, file_out_df, file_out_graph):
+
+    '''
+    Makes whole PPI network and then updates the previously-made df with network values
+    :param df: Initial df to update
+    :param file_out_df: File path to save updated df to (can be the same as initial df to save space)
+    :param file_out_graph: File path to save network to
+    :return: None, just makes two pickle files
+    '''
+
+    # make new df for the graph, has to be one column per out node
+    node_id = []
+    out_node_id = []
+
+    for index, row in df.iterrows():
+        if row['out_edges'] == None:
+            continue
+        for out_node in row['out_edges']:
+            node_id.append(row['string_id'])
+            out_node_id.append(out_node)
+
+    for_df_graph = list(zip(node_id, out_node_id))
+    df_graph = pd.DataFrame(for_df_graph, columns=['node_id', 'out_node_id'])
+    graph = nx.from_pandas_edgelist(df_graph, source='node_id', target='out_node_id')
+
+    # add in node attributes from the df
+    attributes = df.set_index('string_id').to_dict('index')
+    nx.set_node_attributes(graph, attributes)
+
+    # BDM vs node degree, color nodes by protein type
+    degrees = []
+    graph_degree_dict = dict(graph.degree())
+    for protein in df['string_id']:
+        try:
+            if graph_degree_dict[protein]:
+                degrees.append(graph.degree(protein))
+        except:
+            degrees.append(0)
+
+    df['degree'] = degrees
+    # can add more network features to this
+
+    # pickle this graph
+    with open(file_out_graph, 'wb') as handle:
+        pickle.dump(graph, handle)
+
+    # update that df
+    with open(file_out_df, 'wb') as handle:
+        pickle.dump(df, handle)
+
+    return None
+
+
+file_out = os.path.join(pickle_out, 'df.p')
+file_out_graph = os.path.join(pickle_out, 'graph.p')
+
+if first_run:
+
+    # make initial df
+    make_df(files, id_table, metabolic_data, file_out)
+    with open(file_out, 'rb') as f:
+        df = pickle.load(f)
+
+    # then make network and update df
+    make_graph(df, file_out, file_out_graph)
+
+with open(file_out_graph, 'rb') as f:
+    graph = pickle.load(f)
+
+with open(file_out, 'rb') as f:
+    df = pickle.load(f)
+
+
+# for all the ppi_out_edges, make a DF to plot
+
+def make_edge_df(df, file_out):
+
+    edge_rows = []
+
+    df_dict = df.set_index('string_id').to_dict('index')
+
+    for string_id in ppi_out_edges.keys():
+
+        for out_node in ppi_out_edges[string_id]:
+
+            node_a = df_dict[string_id]
+            node_a['string_id'] = string_id
+            node_b = {
+                'string_id_b': out_node,
+                'group_b': df_dict[out_node]['group'],
+                'whole_bdm_b': df_dict[out_node]['whole_bdm'],
+                'length_b': df_dict[out_node]['length'],
+                'protein_type_b': df_dict[out_node]['protein_type'],
+                'ncbi_id_b': df_dict[out_node]['ncbi_id'],
+                'species_b': df_dict[out_node]['species'],
+                'family_b': df_dict[out_node]['family'],
+                'order_b': df_dict[out_node]['order'],
+                'class_b': df_dict[out_node]['class'],
+                'phylum_b': df_dict[out_node]['phylum'],
+                'kingdom_b': df_dict[out_node]['kingdom'],
+                'category_b': df_dict[out_node]['category'],
+                'function_b': df_dict[out_node]['function'],
+                'degree_b': df_dict[out_node]['degree']
+            }
+
+            # glue together
+            node_b.update(node_a)
+            edge_rows.append(node_b)
+
+    edge_df = pd.DataFrame(edge_rows)
+
+    # pickle this df
+    with open(file_out, 'wb') as handle:
+        pickle.dump(edge_df, handle)
+
+    return None
+
+
+file_out = os.path.join(pickle_out, 'edge_df.p')
+
+if first_run:
+    make_edge_df(df, file_out)
+
+with open(file_out, 'rb') as f:
+    edge_df = pickle.load(f)
+
