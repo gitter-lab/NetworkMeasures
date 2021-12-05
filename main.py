@@ -1,17 +1,31 @@
+import os
 import json
 import pandas
 import networkx as nx
 import measures
+import load_in_networks
 
 
 if __name__ == '__main__':
 
+    # load in classes
+    network_importer = load_in_networks.LoadNetworks()
+
+    # make directories
+    pickle_out = 'pickle_jar'
+    folder = os.path.join(pickle_out)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
     # get data or refresh data source
     # need top 3 data sources
     # load in networks (as nx graph)
-    networks = networks
 
-    # loop over networks
+    data_dir = 'downloaded_networks'
+    data_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
+    file_out = os.path.join(pickle_out, 'networks', 'string_networks.p')
+
+    networks = network_importer.virus_string_networks(file_in=data_file, file_out=file_out)
 
     # instantiate measures
     network_measures_class = measures.Network_Measures()
