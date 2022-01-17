@@ -11,9 +11,20 @@ if __name__ == '__main__':
     # load in classes
     network_importer = load_in_networks.LoadNetworks()
 
-    # make directories
+    # ----------- make directories -----------
+
     pickle_out = 'pickle_jar'
     folder = os.path.join(pickle_out)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    data_jar = 'data_jar'
+    folder = os.path.join(data_jar)
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+
+    networks_jar = 'networks'
+    folder = os.path.join(networks_jar)
     if not os.path.exists(folder):
         os.makedirs(folder)
 
@@ -21,11 +32,12 @@ if __name__ == '__main__':
     # need top 3 data sources
     # load in networks (as nx graph)
 
-    data_dir = 'downloaded_networks'
-    data_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
-    file_out = os.path.join(pickle_out, 'networks', 'string_networks.p')
+    data_dir = 'data_jar'
+    edges_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
+    nodes_dir = os.path.join(data_dir)
+    networks_file_out = os.path.join(pickle_out, 'networks', 'string_networks.p')
 
-    networks = network_importer.virus_string_networks(file_in=data_file, file_out=file_out)
+    networks = network_importer.virus_string_networks(edges_file, nodes_dir, networks_file_out)
 
     # instantiate measures
     network_measures_class = measures.Network_Measures()

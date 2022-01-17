@@ -1,8 +1,12 @@
 import os
+import re
 import csv
+import ast
 import pickle
-import pandas
+import pandas as pd
+import dask.dataframe as dd
 import networkx as nx
+import re
 
 # one class:
 # one def per data source
@@ -10,21 +14,155 @@ import networkx as nx
 
 class LoadNetworks:
 
-    def virus_string_networks(self, file_in, file_out):
+    def make_edges(self, edges_file, edges_out_file):
 
-        # make network pickle directory
-        pickle_out = os.path.join('pickle_jar', 'networks')
-        if not os.path.exists(pickle_out):
-            os.makedirs(pickle_out)
+        """
+        Load in the string edges file between proteins and save edges/edge attributes to a pickled dict
 
-        # see if this file is already made, if it is, then just load it
-        if os.path.exists(file_out):
-            with open(file_out, 'rb') as f:
-                networks = pickle.load(f)
-                return networks
+        :param edges_file: str, path to file in
+        :param edges_out_file: str, path to file out
+        :return: None, just saves file to location
+        """
 
-        # else, make edges from file
-        ppi_edges = {}
+        # pickle as dict, p1 (just protein id): {p1 ncbi, {dict of p2s and those edge attributes}}
+        edges = {}
+
+        with open(edges_file, 'rb') as f:
+
+            # skip first line, save header
+            header = next(f)
+            header = header.split()
+
+            # read in line by line
+            for i, line in enumerate(f):
+
+                line = line.split()
+
+                # only load in the experiment, database, and textmining ones
+                experiments = int(line[9])
+                database = int(line[11])
+                textmining = int(line[13])
+
+                if experiments == 0 and database == 0 and textmining == 0:
+                    continue
+
+                # get the actual protein ids
+                p1 = line[0].decode("utf-8")
+                p1_id = '.'.join(p1.split('.')[1:])
+                p1_ncbi = int(p1.split('.')[0])
+                p2 = line[1].decode("utf-8")
+                p2_id = '.'.join(p2.split('.')[1:])
+                p2_ncbi = int(p2.split('.')[0])
+
+                if p1_id in edges.keys():
+                    edges[p1_id]['out_nodes'][p2_id] = {}
+                else:
+                    edges[p1_id] = {}
+                    edges[p1_id]['ncbi'] = p1_ncbi
+                    edges[p1_id]['out_nodes'] = {}
+                    edges[p1_id]['out_nodes'][p2_id] = {}
+
+                # add edge attributes
+                edges[p1_id]['out_nodes'][p2_id]['ncbi'] = p2_ncbi
+                edges[p1_id]['out_nodes'][p2_id]['experiments'] = experiments
+                edges[p1_id]['out_nodes'][p2_id]['database'] = database
+                edges[p1_id]['out_nodes'][p2_id]['textmining'] = textmining
+
+        # pickle these networks
+        with open(edges_out_file, 'wb') as handle:
+            pickle.dump(edges, handle)
+
+        return None
+
+    def make_nodes(self, nodes_dir, edges_out_file, node_out_file):
+
+        """
+        One node file per organism
+
+        :param nodes_dir: str, path to file in
+        :param id_out_file: str, path to file out
+        :return: None, just save to file
+        """
+
+        # load in the list of edges
+        with open(edges_out_file, 'rb') as f:
+            edges = pickle.load(f)
+
+        # list the files for id mapping
+        allfiles = [f for f in os.listdir(nodes_dir) if os.path.isfile(os.path.join(nodes_dir, f))]
+        thesefiles = list(filter(lambda x: re.search(r'.+_idmapping\.dat', x), allfiles))
+
+        # for each file, load in nodes and attributes, match to edges
+        for file in thesefiles:
+
+            # node (uniprot id): {node attributes}
+            nodes = {}
+
+            organism = file.split('_')[0]
+
+            with open(os.path.join(nodes_dir, file), 'rb') as f:
+
+                # read in line by line (no headers here)
+                """
+                This file has three columns, delimited by tab:
+                1. UniProtKB-AC (TO TRANSLATE TO)
+                2. ID_type 
+                3. ID (WHAT IS IN EDGES FILE)
+                where ID_type is the database name as appearing in UniProtKB cross-references, 
+                and as supported by the ID mapping tool on the UniProt web site, 
+                http://www.uniprot.org/mapping and where ID is the identifier in 
+                that cross-referenced database.
+                """
+
+                for i, line in enumerate(f):
+
+                    line = line.split()
+                    uniprot_id = line[0]
+                    id_type = line[1]
+                    id = line[2]
+
+                    # add to dict
+                    nodes[uniprot_id] = {}
+                    nodes[uniprot_id]['organism'] = organism
+                    nodes[uniprot_id]['id_type'] = id_type
+                    nodes[uniprot_id]['id'] = id
+
+                    # find node in edge file to get more information
+                    try:
+                        out_nodes = edges[id]
+                    except:  # if the node is not in the protein edge network, just skip
+                        continue
+
+                    out_nodes
+
+            # pickle these networks
+            with open(node_out_file, 'wb') as handle:
+                pickle.dump(nodes, handle)
+
+        return None
+
+    def virus_string_networks(self, edges_file, nodes_dir, networks_file_out):
+
+        # ----------- Make edge pickle file -----------
+
+        edges_out_file = os.path.join('pickle_jar', 'string_network_edges.p')
+        #self.make_edges(edges_file, edges_out_file)
+
+        # --------- Use id mappings to make nodes files ---------
+
+        node_out_file = os.path.join('pickle_jar', 'string_network_nodes.p')
+        self.make_nodes(nodes_dir, edges_out_file, node_out_file)
+
+        # ----------- Use id mappings to make nodes pickle file -----------
+
+        nodes_out_file = os.path.join('pickle_jar', 'string_network_nodes.p')
+        self.make_nodes(nodes_dir, nodes_out_file)
+
+
+
+
+        # Add all edges into one single graph, will separate by attributes later
+        G = nx.Graph()
 
         with open(file_in, 'rb') as f:
 
@@ -37,7 +175,7 @@ class LoadNetworks:
 
                 line = line.split()
 
-                # only load in the experiment and database ones
+                # only load in the experiment, database, and textmining ones
                 experiments = int(line[9])
                 database = int(line[11])
                 textmining = int(line[13])
@@ -49,9 +187,69 @@ class LoadNetworks:
                 p2 = line[1].decode("utf-8")
 
                 # just add non-directed edge
-                ppi_edges[i] = (p1, p2)
+                G.add_edge(p1, p2)
 
-                # TODO: For each protein, match to organism source
+                # add edge attributes
+                G.edges[p1, p2]['experiments'] = experiments
+                G.edges[p1, p2]['database'] = database
+                G.edges[p1, p2]['textmining'] = textmining
+
+                # --- add node attributes ---
+                # ncbi id is easy
+                G.nodes[p1]['ncbi_id'] = int(p1.split('.')[0])
+                G.nodes[p2]['ncbi_id'] = int(p2.split('.')[0])
+
+                # translate id into uniprot_id
+                p1_id = p1.split('.')[1]
+                p2_id = p2.split('.')[1]
+
+                p1_uniprot = idmapping[idmapping.ID.str.contains(p1_id)]
+                p1_uniprot = p1_uniprot.compute()
+                p1_uniprot
+
+                # Get information about each protein from UniProt downloaded files
+                """
+                All files listed below contain the complete data sets corresponding to the
+                most recent release.
+                
+                1) idmapping.dat
+                This file has three columns, delimited by tab:
+                1. UniProtKB-AC 
+                2. ID_type 
+                3. ID
+                where ID_type is the database name as appearing in UniProtKB cross-references, 
+                and as supported by the ID mapping tool on the UniProt web site, 
+                http://www.uniprot.org/mapping and where ID is the identifier in 
+                that cross-referenced database.
+                
+                
+                2) idmapping_selected.tab
+                We also provide this tab-delimited table which includes
+                the following mappings delimited by tab:
+                
+                1. UniProtKB-AC
+                2. UniProtKB-ID
+                3. GeneID (EntrezGene)
+                4. RefSeq
+                5. GI
+                6. PDB
+                7. GO
+                8. UniRef100
+                9. UniRef90
+                10. UniRef50
+                11. UniParc
+                12. PIR
+                13. NCBI-taxon
+                14. MIM
+                15. UniGene
+                16. PubMed
+                17. EMBL
+                18. EMBL-CDS
+                19. Ensembl
+                20. Ensembl_TRS
+                21. Ensembl_PRO
+                22. Additional PubMed
+                """
 
                 # if new key, add as list
                 #try:
