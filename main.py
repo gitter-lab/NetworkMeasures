@@ -3,13 +3,13 @@ import json
 import pandas
 import networkx as nx
 import measures
-import load_in_networks
+import make_networks
 
 
 if __name__ == '__main__':
 
     # load in classes
-    network_importer = load_in_networks.LoadNetworks()
+    network_maker = make_networks.VirusStringNetworks()
 
     # ----------- make directories -----------
 
@@ -28,16 +28,23 @@ if __name__ == '__main__':
     if not os.path.exists(folder):
         os.makedirs(folder)
 
-    # get data or refresh data source
-    # need top 3 data sources
-    # load in networks (as nx graph)
+    # ----------- load in the networks -----------
 
+    # STRING ONLY
     data_dir = 'data_jar'
     edges_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
     nodes_dir = os.path.join(data_dir)
     networks_file_out = os.path.join(pickle_out, 'networks', 'string_networks.p')
 
-    networks = network_importer.virus_string_networks(edges_file, nodes_dir, networks_file_out)
+    # check to see if networks are already made
+    if os.path.exists(networks_file_out):
+        # if so, load them in
+        networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
+    # if not, then make the networks for the first time
+    else:
+        networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
+
+    # -------------------------
 
     # instantiate measures
     network_measures_class = measures.Network_Measures()
