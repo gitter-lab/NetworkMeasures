@@ -272,15 +272,15 @@ class VirusStringNetworks:
         # n host nodes = 365,437
         # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
         # n hosts nodes with uniprot ids = 121,785
-        # n nosts = 64 (11 with uniprot ids)
+        # n hosts = 64 (11 with uniprot ids)
 
         # n virus nodes = 4703
         # n viruses = 184
 
         # n ncbi ids = 248 = n organisms
 
-        # subgraphs = [G.subgraph(c).copy() for c in nx.connected_components(G)]
-        # n subgraphs = 4639
+        # components = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+        # n components = 4639
 
         # ----------- get virus subgraphs -----------
 
