@@ -80,6 +80,16 @@ class VirusStringNetworks:
                 G.nodes[p1_id]['ncbi_id'] = p1_ncbi
                 G.nodes[p2_id]['ncbi_id'] = p2_ncbi
 
+                G.nodes[p1_id]['organism'] = None
+                G.nodes[p1_id]['uniprot_id'] = None
+                G.nodes[p1_id]['uniprot_id_type'] = None
+                G.nodes[p1_id]['type'] = None
+
+                G.nodes[p2_id]['organism'] = None
+                G.nodes[p2_id]['uniprot_id'] = None
+                G.nodes[p2_id]['uniprot_id_type'] = None
+                G.nodes[p2_id]['type'] = None
+
         # pickle these networks
         with open(edges_out_file, 'wb') as handle:
             pickle.dump(G, handle)
@@ -137,10 +147,10 @@ class VirusStringNetworks:
 
                     # try to add node attributes, if the ID is found in network
                     try:
-                        G.node[id]['organism'] = organism
-                        G.node[id]['uniprot_id'] = uniprot_id
-                        G.node[id]['uniprot_id_type'] = id_type
-                        G.node[id]['type'] = 'host'
+                        G.nodes[id]['organism'] = organism
+                        G.nodes[id]['uniprot_id'] = uniprot_id
+                        G.nodes[id]['uniprot_id_type'] = id_type
+                        G.nodes[id]['type'] = 'host'
 
                     except:  # if the node is not in the protein edge network, just skip
                         continue
@@ -191,13 +201,33 @@ class VirusStringNetworks:
                 taxonomy_position = virus_ncbis[node_ncbi]['taxonomy_position']
 
                 # add values to node
-                G.node[id]['organism'] = name
-                G.node[id]['uniprot_id'] = None
-                G.node[id]['uniprot_id_type'] = None
-                G.node[id]['type'] = 'virus'
+                G.nodes[node]['organism'] = name
+                G.nodes[node]['type'] = 'virus'
 
             except:
                 continue
+
+        # --------- Add the rest of the NCBI names -----------
+
+        # load in csv
+        with open(os.path.join('data_jar', 'all_ncbi_taxonomies.txt'), mode='r') as inp:
+            reader = csv.reader(inp, delimiter='\t')
+            ncbi_ids_to_names = {int(rows[1]): rows[2] for rows in reader}
+
+        # loop over the nodes and get names from ncbi id
+        for node in list(G.nodes):
+
+            node_ncbi = G.nodes[node]['ncbi_id']
+            name = ncbi_ids_to_names[node_ncbi]
+
+            # add values to node
+            G.nodes[node]['organism'] = name
+
+            # check to see if virus or host
+            if re.search('PHAG', name.upper()) or re.search('VIR', name.upper()):
+                G.nodes[node]['type'] = 'virus'
+            else:
+                G.nodes[node]['type'] = 'host'
 
         # pickle these networks
         with open(node_out_file, 'wb') as handle:
@@ -207,29 +237,75 @@ class VirusStringNetworks:
 
     def virus_string_networks(self, edges_file, nodes_dir, networks_file_out):
 
-        # ----------- Make edge pickle file -----------
+        # ----------- Add edges, save to file -----------
 
         edges_out_file = os.path.join('pickle_jar', 'string_network_edges.p')
         #self.make_edges(edges_file, edges_out_file)
 
-        # --------- Use id mappings to make nodes files ---------
+        # --------- Add node attributes, save to file ---------
 
         node_out_file = os.path.join('pickle_jar', 'string_network_nodes.p')
-        self.add_node_attributes(nodes_dir, edges_out_file, node_out_file)
-        quit()
+        #self.add_node_attributes(nodes_dir, edges_out_file, node_out_file)
 
         # ----------- get basic network stats -----------
 
         # load in the list of nodes
-        with open(networks_file_out, 'rb') as f:
-            networks = pickle.load(f)
+        with open(node_out_file, 'rb') as f:
+            G = pickle.load(f)
 
-        # get subgraphs of this graph, based on connected components
-        subgraphs = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+        # overall stats
+        # 370,140 nodes
+        # 18,156,601 edges
+
+        # get stats from node values
+        node_information = dict(G.nodes)
+
+        host_nodes = list(filter(lambda x: node_information[x]['type'] == 'host', node_information.keys()))
+        hosts = sorted(list(set(list(map(lambda x: node_information[x]['organism'], host_nodes)))))
+
+        virus_nodes = list(filter(lambda x: node_information[x]['type'] == 'virus', node_information.keys()))
+        viruses = sorted(list(set(list(map(lambda x: node_information[x]['organism'], virus_nodes)))))
+
+        ncbis = list(set(list(map(lambda x: node_information[x]['ncbi_id'], node_information.keys()))))
+        organisms = list(set(list(map(lambda x: node_information[x]['organism'], node_information.keys()))))
+
+        # n host nodes = 365,437
+        # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
+        # n hosts nodes with uniprot ids = 121,785
+        # n nosts = 64 (11 with uniprot ids)
+
+        # n virus nodes = 4703
+        # n viruses = 184
+
+        # n ncbi ids = 248 = n organisms
+
+        # subgraphs = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+        # n subgraphs = 4639
+
+        # ----------- get virus subgraphs -----------
+
+        subgraphs = {}
+
+        # for each virus, get network of all interacting nodes
+        for virus in viruses:
+
+            # filter list of nodes to ones with virus name
+            virus_subgraph_nodes = list(filter(lambda x: node_information[x]['organism'] == virus, node_information.keys()))
+
+            # make subgraph from list of virus nodes
+            virus_subgraph = G.subgraph(virus_subgraph_nodes)
+
+            subgraphs[virus] = virus_subgraph
+
+            # basic subgraph stats
+            print(virus)
+            print({'n_nodes': len(virus_subgraph.nodes()), 'n_edges': len(virus_subgraph.edges())})
 
         # pickle these networks
         with open(networks_file_out, 'wb') as handle:
             pickle.dump(subgraphs, handle)
+
+        quit()
 
         # sort by size, largest first
         networks = sorted(networks, key=len, reverse=True)
