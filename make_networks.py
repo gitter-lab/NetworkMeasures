@@ -289,12 +289,28 @@ class VirusStringNetworks:
         # for each virus, get network of all interacting nodes
         for virus in viruses:
 
+            # get list of edges that involve those nodes
+            virus_subgraph_edges = []
+
             # filter list of nodes to ones with virus name
             virus_subgraph_nodes = list(filter(lambda x: node_information[x]['organism'] == virus, node_information.keys()))
 
-            # make subgraph from list of virus nodes
-            virus_subgraph = G.subgraph(virus_subgraph_nodes)
+            for node in virus_subgraph_nodes:
 
+                # get edges associated with this node
+                edges = list(G.edges(node))
+
+                # add to list of edges
+                [virus_subgraph_edges.append(e) for e in edges]
+
+            # turn list of edges into list of nodes
+            subgraph_nodes = []
+            [(subgraph_nodes.append(e[0]), subgraph_nodes.append(e[1])) for e in virus_subgraph_edges]
+
+            # make subgraph from list of nodes from edges
+            virus_subgraph = G.subgraph(list(set(subgraph_nodes)))
+
+            # save subgraph to dict
             subgraphs[virus] = virus_subgraph
 
             # basic subgraph stats
@@ -306,6 +322,7 @@ class VirusStringNetworks:
             pickle.dump(subgraphs, handle)
 
         quit()
+
 
         # sort by size, largest first
         networks = sorted(networks, key=len, reverse=True)
