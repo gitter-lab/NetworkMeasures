@@ -4,6 +4,7 @@ import pandas
 import networkx as nx
 import measures
 import make_networks
+import pickle
 
 
 if __name__ == '__main__':
@@ -39,10 +40,22 @@ if __name__ == '__main__':
     # check to see if networks are already made
     if os.path.exists(networks_file_out):
         # if so, load them in
-        networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
+        with open(networks_file_out, 'rb') as f:
+            networks = pickle.load(f)
+
     # if not, then make the networks for the first time
     else:
         networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
+
+    # ------------------------- explore these networks
+
+    # filter on edges
+    networks = list(map(lambda x: networks[x].edge_subgraph(
+            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] == 0, list(networks[x].edges())))
+        ).copy(), networks.keys()))
+
+    # filter on nodes
+    networks = list(map(lambda x: x, networks))
 
     # -------------------------
 

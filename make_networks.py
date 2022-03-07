@@ -240,12 +240,12 @@ class VirusStringNetworks:
         # ----------- Add edges, save to file -----------
 
         edges_out_file = os.path.join('pickle_jar', 'string_network_edges.p')
-        #self.make_edges(edges_file, edges_out_file)
+        self.make_edges(edges_file, edges_out_file)
 
         # --------- Add node attributes, save to file ---------
 
         node_out_file = os.path.join('pickle_jar', 'string_network_nodes.p')
-        #self.add_node_attributes(nodes_dir, edges_out_file, node_out_file)
+        self.add_node_attributes(nodes_dir, edges_out_file, node_out_file)
 
         # ----------- get basic network stats -----------
 
@@ -321,9 +321,9 @@ class VirusStringNetworks:
         with open(networks_file_out, 'wb') as handle:
             pickle.dump(subgraphs, handle)
 
-        quit()
+        return None
 
-
+        """
         # sort by size, largest first
         networks = sorted(networks, key=len, reverse=True)
 
@@ -345,7 +345,7 @@ class VirusStringNetworks:
 
 
         virus_data_rows = list(map(lambda x: virus_data_row(x), virus_data_parsed))
-
+        """
 
     def make_df(self, bdm_pickle_files, id_table, metabolic_data, file_out):
 
