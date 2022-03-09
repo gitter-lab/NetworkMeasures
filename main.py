@@ -2,9 +2,14 @@ import os
 import json
 import pandas
 import networkx as nx
+import pandas as pd
+
 import measures
 import make_networks
 import pickle
+
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 if __name__ == '__main__':
@@ -35,7 +40,7 @@ if __name__ == '__main__':
     data_dir = 'data_jar'
     edges_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
     nodes_dir = os.path.join(data_dir)
-    networks_file_out = os.path.join(pickle_out, 'networks', 'string_networks.p')
+    networks_file_out = os.path.join('networks', 'string_networks.p')
 
     # check to see if networks are already made
     if os.path.exists(networks_file_out):
@@ -47,12 +52,108 @@ if __name__ == '__main__':
     else:
         networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
 
-    # ------------------------- explore these networks
+    # ----------- explore these networks -----------
+
+    # n edges = 3,311,139
+    n_edges = sum(list(map(lambda x: len(list(networks[x].edges())), networks)))
+    n_edges
+
+    # n host nodes = 365,437
+    # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
+    # n hosts nodes with uniprot ids = 121,785
+    # n hosts = 64 (11 with uniprot ids)
+
+    # n virus nodes = 4703
+    # n viruses = 184
+
+    # n ncbi ids = 248 = n organisms
+
+    # components = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+    # n components = 4639
+
+    # number of inferred edges = 2,982,720
+    #inferred_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['experiments'] == 0 and networks[network][x[0]][x[1]]['database'] == 0, list(networks[network].edges())))) for network in networks]
+
+    # number of database edges = 193,146
+    #database_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['database'] != 0, list(networks[network].edges())))) for network in networks]
+
+    # number of experiment edges = 176,594
+    #experiment_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['experiments'] != 0, list(networks[network].edges())))) for network in networks]
+
+    # make df of network edge attributes
+    rows = []
+    for network in list(networks.keys()):
+
+        virus = network
+        network = networks[network]
+
+        # edge information
+        edges = list(network.edges())
+        n_experiments = len(list(filter(lambda edge: network[edge[0]][edge[1]]['experiments'] != 0, edges)))
+        n_database = len(list(filter(lambda edge: network[edge[0]][edge[1]]['database'] != 0, edges)))
+        n_inferred = len(list(filter(lambda edge: network[edge[0]][edge[1]]['experiments'] == 0 and
+                                                     network[edge[0]][edge[1]]['database'] == 0, edges)))
+
+        # number of hosts in this network
+        n_species = len(set(list(nx.get_node_attributes(network, "ncbi_id").values())))
+
+        node_types = list(zip(nx.get_node_attributes(network, "type").values(),
+                              list(nx.get_node_attributes(network, "ncbi_id").values())))
+
+        # number of hosts
+        hosts = list(filter(lambda x: x[0] == 'host', node_types))
+        n_hosts = len(list(set(list(map(lambda x: x[1], hosts)))))
+
+        # number of viruses
+        viruses = list(filter(lambda x: x[0] == 'virus', node_types))
+        n_viruses = len(list(set(list(map(lambda x: x[1], viruses)))))
+
+        # save for db
+        row = [virus, n_experiments, n_database, n_inferred, n_species, n_hosts, n_viruses,
+               len(network.nodes()), len(network.edges())]
+        rows.append(row)
+
+    # make list of lists into df
+    df = pd.DataFrame(rows, columns=['virus', 'n_experiments', 'n_database', 'n_inferred', 'n_species',
+                                     'n_hosts', 'n_viruses', 'n_nodes', 'n_edges'])
+
+    # sort by total number of edges
+    df = df.sort_values("n_edges", ascending=False)
+
+    # stacked bar chart of experiment/data edges vs inferred edges
+    sns.set_theme(style="whitegrid")
+    sns.set(font_scale=0.5)
+
+    # Initialize the matplotlib figure
+    f, ax = plt.subplots()
+
+    sns.set_color_codes("pastel")
+    sns.barplot(x="n_inferred", y="virus", data=df, label="Inferred", color="b", linewidth=0)
+
+    sns.set_color_codes("dark")
+    sns.barplot(x="n_experiments", y="virus", data=df, label="Experiments", color="b", linewidth=0)
+
+    sns.set_color_codes("muted")
+    sns.barplot(x="n_database", y="virus", data=df, label="Database", color="b", linewidth=0)
+
+    # Add a legend and informative axis label
+    ax.legend(ncol=3, loc="lower right", frameon=True)
+    ax.set(ylabel="", xlabel="Number of edges")
+    plt.xscale('log')
+    #p.set_xlabel("Number of edges", fontsize=10)
+    #p.set_ylabel("", fontsize=2)
+    sns.despine(left=True, bottom=True)
+    plt.tight_layout()
+    plt.show()
+    plt.savefig('edge_types.png')
+    plt.clf()
+    quit()
 
     # filter on edges
     networks = list(map(lambda x: networks[x].edge_subgraph(
-            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] == 0, list(networks[x].edges())))
-        ).copy(), networks.keys()))
+            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] != 0 or
+                                  networks[x][y[0]][y[1]]['database'] != 0,
+                        list(networks[x].edges())))).copy(), networks.keys()))
 
     # filter on nodes
     networks = list(map(lambda x: x, networks))
