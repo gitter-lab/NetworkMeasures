@@ -52,11 +52,63 @@ if __name__ == '__main__':
     else:
         networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
 
+    # ----------- filter out edges in networks that are not inferred -----------
+    """
+    filtered_networks = {}
+    for network in networks:
+
+        G = networks[network].copy()
+
+        for edge in list(networks[network].edges()):
+            if networks[network][edge[0]][edge[1]]['experiments'] == 0 and networks[network][edge[0]][edge[1]]['database'] == 0:
+
+                G.remove_edge(edge[0], edge[1])
+
+        # throw away if no more edges
+        if G.number_of_edges() == 0:
+            continue
+        else:
+            filtered_networks[network] = G
+
+    # pickle these networks
+    with open('networks/filtered_networks.p', 'wb') as handle:
+        pickle.dump(filtered_networks, handle)
+
+    quit()"""
+
+    # ----------- apply measures -----------
+
+    with open('networks/filtered_networks.p', 'rb') as f:
+        filtered_networks = pickle.load(f)
+
+    """for network in filtered_networks:
+
+        G = filtered_networks[network].copy()
+        dc = nx.degree(G)
+        dc = sorted(list(dict(dc).values()), reverse=True)
+        plt.plot(range(len(dc)), dc)
+
+    plt.title('Degree distributions')
+    plt.show()
+    plt.clf()"""
+
+    for network in filtered_networks:
+
+        G = filtered_networks[network].copy()
+        dc = nx.degree_centrality(G)
+        dc = sorted(list(dict(dc).values()), reverse=True)
+        plt.plot(range(len(dc)), dc)
+
+    plt.title('Degree centrality distributions')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.show()
+    plt.clf()
+
     # ----------- explore these networks -----------
 
     # n edges = 3,311,139
     n_edges = sum(list(map(lambda x: len(list(networks[x].edges())), networks)))
-    n_edges
 
     # n host nodes = 365,437
     # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
