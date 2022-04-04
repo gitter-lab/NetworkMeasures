@@ -41,22 +41,22 @@ class Node_Measures:
 
         return nx.closeness_vitality(G)
 
-    def normalized_fisser_information(self, G):
+    #def normalized_fisher_information(self, G):
 
         # https://gitlab.com/cristophersfr/fisher-networks
         # https://www.nature.com/articles/s41598-019-53167-5
 
-        return G
+    #    return G
 
     def clustering_coefficient(self, G):
 
         return nx.clustering(G)
 
-    def transfer_entropy(self, G):
+    #def transfer_entropy(self, G):
 
         # https://royalsocietypublishing.org/doi/10.1098/rspa.2019.0779
 
-        return G
+    #    return G
 
 class Network_Measures:
 
@@ -78,12 +78,12 @@ class Network_Measures:
         # https://www.nature.com/articles/s41598-019-53167-5
         return G
 
-    def network_fisher_information(self, G):
+    #def network_fisher_information(self, G):
 
         # https://gitlab.com/cristophersfr/fisher-networks
         # https://www.nature.com/articles/s41598-019-53167-5
 
-        return G
+    #    return G
 
     def kolmogorov_complexity(self, G):
 
