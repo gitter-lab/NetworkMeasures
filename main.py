@@ -152,182 +152,151 @@ if __name__ == '__main__':
 
     #edge_attribute_figure(networks)
 
-    # ----------- make df of network measures (whole database) -----------
+    # ----------- make df of network measures -----------
 
     # just basic measures
     # add complexity measures
     # add perturbation measures
     # add rows for edges too--> complexity perturbation measures, attribute information
 
-    # do on filtered data set
-
-    network_measures = measures.Network_Measures()
-    node_measures = measures.Node_Measures()
-
-    header = [
-        'object_type',
-        'network_id',
-        'n_nodes',
-        'n_edges',
-        'n_components',
-        'n_hosts',
-        'n_viruses',
-        'average_node_connectivity',
-        'non_randomness',
-        'small_world_omega',
-        'degree_centrality',
-        'betweenness_centrality',
-        'closeness_centrality',
-        'eigenvector_centrality',
-        'pagerank',
-        'katz_centrality',
-        'load_centrality',
-        'closeness_vitality',
-        'clustering_coefficient',
-        'node_ncbi_id',
-        'node_organism',
-        'node_uniprot_id',
-        'node_uniprot_id_type',
-        'node_type']
-
-    df_whole_database = pd.DataFrame(columns=header)
-
-    for network in networks:
-
-        network_id = network
-        network = networks[network].copy()
-
-        # get basic network measures
-        n_nodes = network.number_of_nodes()
-        n_edges = network.number_of_edges()
-        n_components = nx.number_connected_components(network)
-
-        node_types = list(zip(nx.get_node_attributes(network, "type").values(),
-                              list(nx.get_node_attributes(network, "ncbi_id").values())))
-
-        # number of hosts
-        hosts = list(filter(lambda x: x[0] == 'host', node_types))
-        n_hosts = len(list(set(list(map(lambda x: x[1], hosts)))))
-
-        # number of viruses
-        viruses = list(filter(lambda x: x[0] == 'virus', node_types))
-        n_viruses = len(list(set(list(map(lambda x: x[1], viruses)))))
-
-        # get whole network measures
-        try:
-            average_node_connectivity = network_measures.average_node_connectivity(network)
-        except:
-            average_node_connectivity = None
-        try:
-            non_randomness = network_measures.non_randomness(network)
-        except:
-            non_randomness = None
-        try:
-            small_world_omega = network_measures.small_world_omega(network)
-        except:
-            small_world_omega = None
-        #normalized_network_centrality = network_measures.normalized_network_centrality(network)
-        #kolmogorov_complexity = network_measures.kolmogorov_complexity(network)
-
-        # get node measures
-        degree_centrality = node_measures.degree_centrality(network)
-        betweenness_centrality = node_measures.betweenness_centrality(network)
-        closeness_centrality = node_measures.closeness_centrality(network)
-        eigenvector_centrality = node_measures.eigenvector_centrality(network)
-        pagerank = node_measures.pagerank(network)
-        katz_centrality = node_measures.katz_centrality(network)
-        load_centrality = node_measures.load_centrality(network)
-        #percolation_centrality = node_measures.percolation_centrality(network)
-        closeness_vitality = node_measures.closeness_vitality(network)
-        clustering_coefficient = node_measures.clustering_coefficient(network)
-
-        # for each node, add row to df
-        for node in network.nodes():
-
-            # get other node information
-            attributes = network.nodes[node]
-
-            row = {
-                'object_type': 'node',
-                'network_id': network_id,
-                'n_nodes': n_nodes,
-                'n_edges': n_edges,
-                'n_components': n_components,
-                'n_hosts': n_hosts,
-                'n_viruses': n_viruses,
-                'average_node_connectivity': average_node_connectivity,
-                'non_randomness': non_randomness,
-                'small_world_omega': small_world_omega,
-                'degree_centrality': degree_centrality[node],
-                'betweenness_centrality': betweenness_centrality[node],
-                'closeness_centrality': closeness_centrality[node],
-                'eigenvector_centrality': eigenvector_centrality[node],
-                'pagerank': pagerank[node],
-                'katz_centrality': katz_centrality[node],
-                'load_centrality': load_centrality[node],
-                'closeness_vitality': closeness_vitality[node],
-                'clustering_coefficient': clustering_coefficient[node],
-                'node_ncbi_id': attributes['ncbi_id'],
-                'node_organism': attributes['organism'],
-                'node_uniprot_id': attributes['uniprot_id'],
-                'node_uniprot_id_type': attributes['uniprot_id_type'],
-                'node_type': attributes['type']
-            }
-
-            df_whole_database = df_whole_database.append(row, ignore_index=True)
-
-    # save as a csv file
-    df_whole_database.to_csv(os.path.join('data_jar', 'whole_data.csv'), sep='\t')
-    quit()
-
-    # ----------- make df of network measures (filtered) -----------
-
     # filter on edges
-    networks = list(map(lambda x: networks[x].edge_subgraph(
-            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] != 0 or
-                                  networks[x][y[0]][y[1]]['database'] != 0,
-                        list(networks[x].edges())))).copy(), networks.keys()))
+    networks_filtered_edges = list(map(lambda x: networks[x].edge_subgraph(
+        list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] != 0 or
+                              networks[x][y[0]][y[1]]['database'] != 0,
+                    list(networks[x].edges())))).copy(), networks.keys()))
 
-    # remove lone nodes
-    # remove networks that have no edges
+    # remove lone nodes and networks without edges
+    networks_filtered = {}
+    for i, network in enumerate(networks_filtered_edges):
 
-    # -------------------------
+        network.remove_nodes_from(list(nx.isolates(network)))
 
-    # instantiate measures
-    network_measures_class = measures.Network_Measures()
-    node_measures_class = measures.Node_Measures()
-    dynamic_measures_class = measures.Dynamic_Measures()
+        if len(network.edges) > 0:
+            networks_filtered[list(networks.keys())[i]] = network
 
-    dict_for_df = {}
+    def make_df(networks_filtered):
 
-    # for each network:
-    for network in networks:
+        network_measures = measures.Network_Measures()
+        node_measures = measures.Node_Measures()
 
-        row = []
+        header = [
+            'object_type',
+            'network_id',
+            'n_nodes',
+            'n_edges',
+            'n_components',
+            'n_hosts',
+            'n_viruses',
+            'average_node_connectivity',
+            'non_randomness',
+            'small_world_omega',
+            'degree_centrality',
+            'betweenness_centrality',
+            'closeness_centrality',
+            'eigenvector_centrality',
+            'pagerank',
+            'katz_centrality',
+            'load_centrality',
+            'closeness_vitality',
+            'clustering_coefficient',
+            'node_ncbi_id',
+            'node_organism',
+            'node_uniprot_id',
+            'node_uniprot_id_type',
+            'node_type']
 
-        # for each network measure:
-        for measure in measures:
+        df_whole_database = pd.DataFrame(columns=header)
 
-            # determine if whole network or nodes measure
-            if measure.type() == 'whole':
+        for network in networks_filtered:
 
-                # apply measure
-                measure_outcome = measure.apply(network, type='whole')
+            network_id = network
+            network = networks_filtered[network]
 
-            else:
+            # get basic network measures
+            n_nodes = network.number_of_nodes()
+            n_edges = network.number_of_edges()
+            n_components = nx.number_connected_components(network)
 
-                measure_outcome = measure.apply(network, type='node')
+            node_types = list(zip(nx.get_node_attributes(network, "type").values(),
+                                  list(nx.get_node_attributes(network, "ncbi_id").values())))
 
-            # save measure in df column
-            row.append(measure_outcome)
+            # number of hosts
+            hosts = list(filter(lambda x: x[0] == 'host', node_types))
+            n_hosts = len(list(set(list(map(lambda x: x[1], hosts)))))
 
-        # save network to df
-        dict_for_df[network] = row
+            # number of viruses
+            viruses = list(filter(lambda x: x[0] == 'virus', node_types))
+            n_viruses = len(list(set(list(map(lambda x: x[1], viruses)))))
 
-    # dict to df
-    # save df to file
+            # get whole network measures
+            try:
+                average_node_connectivity = network_measures.average_node_connectivity(network)
+            except:
+                average_node_connectivity = None
+            try:
+                non_randomness = network_measures.non_randomness(network)
+            except:
+                non_randomness = None
+            try:
+                small_world_omega = network_measures.small_world_omega(network)
+            except:
+                small_world_omega = None
+            #normalized_network_centrality = network_measures.normalized_network_centrality(network)
+            #kolmogorov_complexity = network_measures.kolmogorov_complexity(network)
 
-    # save venv to requirements.txt file
+            # get node measures
+            degree_centrality = node_measures.degree_centrality(network)
+            betweenness_centrality = node_measures.betweenness_centrality(network)
+            closeness_centrality = node_measures.closeness_centrality(network)
+            eigenvector_centrality = node_measures.eigenvector_centrality(network)
+            pagerank = node_measures.pagerank(network)
+            katz_centrality = node_measures.katz_centrality(network)
+            load_centrality = node_measures.load_centrality(network)
+            #percolation_centrality = node_measures.percolation_centrality(network)
+            closeness_vitality = node_measures.closeness_vitality(network)
+            clustering_coefficient = node_measures.clustering_coefficient(network)
+
+            # for each node, add row to df
+            for node in network.nodes():
+
+                # get other node information
+                attributes = network.nodes[node]
+
+                row = {
+                    'object_type': 'node',
+                    'network_id': network_id,
+                    'n_nodes': n_nodes,
+                    'n_edges': n_edges,
+                    'n_components': n_components,
+                    'n_hosts': n_hosts,
+                    'n_viruses': n_viruses,
+                    'average_node_connectivity': average_node_connectivity,
+                    'non_randomness': non_randomness,
+                    'small_world_omega': small_world_omega,
+                    'degree_centrality': degree_centrality[node],
+                    'betweenness_centrality': betweenness_centrality[node],
+                    'closeness_centrality': closeness_centrality[node],
+                    'eigenvector_centrality': eigenvector_centrality[node],
+                    'pagerank': pagerank[node],
+                    'katz_centrality': katz_centrality[node],
+                    'load_centrality': load_centrality[node],
+                    'closeness_vitality': closeness_vitality[node],
+                    'clustering_coefficient': clustering_coefficient[node],
+                    'node_ncbi_id': attributes['ncbi_id'],
+                    'node_organism': attributes['organism'],
+                    'node_uniprot_id': attributes['uniprot_id'],
+                    'node_uniprot_id_type': attributes['uniprot_id_type'],
+                    'node_type': attributes['type']
+                }
+
+                df_whole_database = df_whole_database.append(row, ignore_index=True)
+
+        # save as a csv file
+        df_whole_database.to_csv(os.path.join('data_jar', 'whole_data.csv'), sep='\t')
+
+        return None
+
+    make_df(networks)
 
     # ================ Try to visualize the PPI network ===================
 
