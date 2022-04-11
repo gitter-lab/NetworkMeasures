@@ -210,6 +210,7 @@ if __name__ == '__main__':
         for network in networks_filtered:
 
             network_id = network
+            print(network_id)
             network = networks_filtered[network]
 
             # get basic network measures
@@ -290,9 +291,10 @@ if __name__ == '__main__':
                 }
 
                 df_whole_database = df_whole_database.append(row, ignore_index=True)
+                print('.')
 
-        # save as a csv file
-        df_whole_database.to_csv(os.path.join('data_jar', 'whole_data.csv'), sep='\t')
+            # save as a csv file
+            df_whole_database.to_csv(os.path.join('data_jar', 'measures_' + network_id + '.csv'), sep='\t')
 
         return None
 
