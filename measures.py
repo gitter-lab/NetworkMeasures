@@ -19,7 +19,7 @@ class Node_Measures:
 
     def eigenvector_centrality(self, G):
 
-        return nx.eigenvector_centrality(G)
+        return nx.eigenvector_centrality(G, max_iter=1000)
 
     def pagerank(self, G):
 
@@ -27,7 +27,10 @@ class Node_Measures:
 
     def katz_centrality(self, G):
 
-        return nx.katz_centrality(G)
+        try:
+            return nx.katz_centrality(G, max_iter=10000)
+        except:
+            return dict(zip(list(G.nodes()), [None]*len(list(G.nodes()))))
 
     def load_centrality(self, G):
 
