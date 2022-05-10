@@ -105,7 +105,8 @@ if __name__ == '__main__':
     network_ids = list(networks_filtered.keys())
 
     # serial calculation
-    #[network_maker.make_df(network_id) for network_id in network_ids]
+    [network_maker.make_df(network_id) for network_id in network_ids[169:]]
+    quit()
 
     # for multiprocessing (these measures sure are slow...)
     #with Pool(multiprocessing.cpu_count()) as p:
@@ -140,6 +141,11 @@ if __name__ == '__main__':
                     value = 0.0
 
                 network.nodes[node_name][measure] = value
+
+        # also print the size of the graph so I know which to visualize in cytoscape
+        print(str(network_id))
+        print(network)
+        print()
 
         # make into a cytoscape object and save to folder
         network = nx.cytoscape_data(network)
