@@ -44,13 +44,11 @@ if __name__ == '__main__':
     edges_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
     nodes_dir = os.path.join(data_dir)
     networks_file_out = os.path.join('networks', 'string_networks.p')
-    filtered_networks_file_out = os.path.join('networks', 'filtered_string_networks.p')
-    measured_networks_file_out = os.path.join('networks', 'measured_string_networks.p')
 
     # ----------- explore these networks -----------
 
     # n edges = 3,311,139
-    #n_edges = sum(list(map(lambda x: len(list(networks[x].edges())), networks)))
+    # n_edges = sum(list(map(lambda x: len(list(networks[x].edges())), networks)))
 
     # n host nodes = 365,437
     # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
@@ -74,16 +72,22 @@ if __name__ == '__main__':
     # number of experiment edges = 176,594
     #experiment_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['experiments'] != 0, list(networks[network].edges())))) for network in networks]
 
-    # ----------- make df of network measures -----------
-    # TODO: refactor this section
+    # ----------- Filter the networks -----------
 
-    # just basic measures
-    # add complexity measures
-    # add perturbation measures
-    # add rows for edges too--> complexity perturbation measures, attribute information
+    # Evidence-based and textmined separate networks
+
+    # 1. Filter by edge type and remove lone nodes
+    # 2. Filter nodes to ones that only contain virus-host nodes
+    # 3. Take subgraph of those nodes only
+
+    filtered_experiments_networks_file_out = os.path.join('networks', 'filtered_experiments_string_networks.p')
+    filtered_textmining_networks_file_out = os.path.join('networks', 'filtered_textmining_string_networks.p')
+    measured_experiments_networks_file_out = os.path.join('networks', 'measured_experiments_string_networks.p')
+    measured_textmining_networks_file_out = os.path.join('networks', 'measured_textmining_string_networks.p')
 
     # check to see if filtered networks are already made
-    if not os.path.exists(filtered_networks_file_out):
+    if not os.path.exists(filtered_experiments_networks_file_out) and not \
+            os.path.exists(filtered_textmining_networks_file_out):
 
         # check to see if networks are already made
         if os.path.exists(networks_file_out):
@@ -96,16 +100,28 @@ if __name__ == '__main__':
             networks = network_maker.virus_string_networks(edges_file, nodes_dir, networks_file_out)
 
         # filter networks for first time
-        networks_filtered = network_maker.filter_networks(networks, filtered_networks_file_out)
+        networks_filtnetworks_filtered_experiments, networks_filtered_textminingered = \
+            network_maker.filter_networks(networks, filtered_experiments_networks_file_out,
+                                          filtered_textmining_networks_file_out)
 
     else:
-        with open(filtered_networks_file_out, 'rb') as f:
-            networks_filtered = pickle.load(f)
+        with open(filtered_experiments_networks_file_out, 'rb') as f:
+            filtered_experiments_networks = pickle.load(f)
+        with open(filtered_textmining_networks_file_out, 'rb') as f:
+            filtered_textmining_networks = pickle.load(f)
 
-    network_ids = list(networks_filtered.keys())
+    # ----------- make df of network measures -----------
+
+    # just basic measures
+    # add complexity measures
+    # add perturbation measures
+    # add rows for edges too--> complexity perturbation measures, attribute information
+
+    network_ids = list(filtered_experiments_networks.keys())
 
     # serial calculation
-    [network_maker.make_df(network_id) for network_id in network_ids[169:]]
+    [network_maker.make_df(network_id, filtered_experiments_networks_file_out) for network_id in network_ids]
+    [network_maker.make_df(network_id, filtered_textmining_networks_file_out) for network_id in network_ids]
     quit()
 
     # for multiprocessing (these measures sure are slow...)
@@ -117,11 +133,11 @@ if __name__ == '__main__':
     for network_id in network_ids:
 
         # grab the network
-        network = networks_filtered[network_id]
+        network = filtered_experiments_networks[network_id]
 
         # load in the csv of measures
         try:
-            measures_data = pd.read_csv(os.path.join('data_jar', 'measures_' + network_id + '.csv'))
+            measures_data = pd.read_csv(os.path.join('data_jar', 'measures_experiments_' + network_id + '.csv'))
         except:
             continue
 

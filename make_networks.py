@@ -237,6 +237,15 @@ class VirusStringNetworks:
 
     def virus_string_networks(self, edges_file, nodes_dir, networks_file_out):
 
+        '''
+
+
+        :param edges_file:
+        :param nodes_dir:
+        :param networks_file_out:
+        :return:
+        '''
+
         # ----------- Add edges, save to file -----------
 
         edges_out_file = os.path.join('pickle_jar', 'string_network_edges.p')
@@ -327,6 +336,7 @@ class VirusStringNetworks:
 
         '''
         Makes whole PPI network and then updates the previously-made df with network values
+
         :param df: Initial df to update
         :param file_out_df: File path to save updated df to (can be the same as initial df to save space)
         :param file_out_graph: File path to save network to
@@ -375,11 +385,22 @@ class VirusStringNetworks:
 
         return None
 
-    def filter_networks(self, networks, filtered_networks_file_out):
+    def filter_networks(self, networks, filtered_experiments_networks_file_out, filtered_textmining_networks_file_out):
+
+        '''
+        From dict of whole networks in this dataset, filter them based on criteria.
+
+        :param networks: Dict, {virus_name_str: networkx_graph_object}
+        :param filtered_experiments_networks_file_out: str, path+filename for resulting pickled dictionary
+        :param filtered_textmining_networks_file_out: str, path+filename for resulting pickled dictionary
+        :return: Return networks
+        '''
+
+        # ------------- experiment and database networks first ---------------
 
         # filter on edges
         networks_filtered_edges = list(map(lambda x: networks[x].edge_subgraph(
-            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] != 0 or
+            list(filter(lambda y: networks[x][y[0]][y[1]]['experiments'] != 0 or
                                   networks[x][y[0]][y[1]]['database'] != 0,
                         list(networks[x].edges())))).copy(), networks.keys()))
 
@@ -392,25 +413,101 @@ class VirusStringNetworks:
             if len(network.edges) > 0:
                 networks_filtered[list(networks.keys())[i]] = network
 
+        # get nodes involved in virus-host edges only
+        interaction_nodes = {}
+        for network in networks_filtered:
+
+            node_list = []
+            edge_list = list(networks_filtered[network].edges)
+
+            for edge in edge_list:
+                node_a = edge[0]
+                node_b = edge[1]
+                node_a_type = networks_filtered[network].nodes[node_a]['type']
+                node_b_type = networks_filtered[network].nodes[node_b]['type']
+
+                # just get the edges between non-matching node types (virus/host edges)
+                if not node_a_type == node_b_type:
+                    node_list.append(node_a)
+                    node_list.append(node_b)
+
+            interaction_nodes[network] = node_list
+
+        # get subgraph only involving these nodes
+        networks_filtered = dict(map(lambda x: (x[0], x[1].subgraph(interaction_nodes[x[0]])), networks_filtered.items()))
+
+        # remove empty networks
+        networks_filtered = dict(filter(lambda x: len(list(x[1].edges())) > 0, networks_filtered.items()))
+
         # sort these networks by size, then do large ones first and small ones last
-        networks_filtered = list(map(lambda x: [x[0], x[1], x[1].number_of_nodes()], networks_filtered.items()))
+        networks_filtered = list(map(lambda x: [x[0], x[1], x[1].number_of_edges()], networks_filtered.items()))
         networks_filtered = sorted(networks_filtered, key=lambda x: x[-1], reverse=False)
-        networks_filtered = dict(map(lambda x: (x[0], x[1]), networks_filtered))
+        networks_filtered_experiments = dict(map(lambda x: (x[0], x[1]), networks_filtered))
 
         # pickle these networks
-        with open(filtered_networks_file_out, 'wb') as handle:
-            pickle.dump(networks_filtered, handle)
+        with open(filtered_experiments_networks_file_out, 'wb') as handle:
+            pickle.dump(networks_filtered_experiments, handle)
 
-        return networks_filtered
+        # ------------- then do textmined networks next ---------------
 
-    def make_df(self, network):
+        # filter on edges
+        networks_filtered_edges = list(map(lambda x: networks[x].edge_subgraph(
+            list(filter(lambda y: networks[x][y[0]][y[1]]['textmining'] != 0,
+                        list(networks[x].edges())))).copy(), networks.keys()))
+
+        # remove lone nodes and networks without edges
+        networks_filtered = {}
+        for i, network in enumerate(networks_filtered_edges):
+
+            network.remove_nodes_from(list(nx.isolates(network)))
+
+            if len(network.edges) > 0:
+                networks_filtered[list(networks.keys())[i]] = network
+
+        # get nodes involved in virus-host edges only
+        interaction_nodes = {}
+        for network in networks_filtered:
+
+            node_list = []
+            edge_list = list(networks_filtered[network].edges)
+
+            for edge in edge_list:
+                node_a = edge[0]
+                node_b = edge[1]
+                node_a_type = networks_filtered[network].nodes[node_a]['type']
+                node_b_type = networks_filtered[network].nodes[node_b]['type']
+
+                # just get the edges between non-matching node types (virus/host edges)
+                if not node_a_type == node_b_type:
+                    node_list.append(node_a)
+                    node_list.append(node_b)
+
+            interaction_nodes[network] = node_list
+
+        # get subgraph only involving these nodes
+        networks_filtered = dict(map(lambda x: (x[0], x[1].subgraph(interaction_nodes[x[0]])), networks_filtered.items()))
+
+        # remove empty networks
+        networks_filtered = dict(filter(lambda x: len(list(x[1].edges())) > 0, networks_filtered.items()))
+
+        # sort these networks by size, then do large ones first and small ones last
+        networks_filtered = list(map(lambda x: [x[0], x[1], x[1].number_of_edges()], networks_filtered.items()))
+        networks_filtered = sorted(networks_filtered, key=lambda x: x[-1], reverse=False)
+        networks_filtered_textmining = dict(map(lambda x: (x[0], x[1]), networks_filtered))
+
+        # pickle these networks
+        with open(filtered_textmining_networks_file_out, 'wb') as handle:
+            pickle.dump(networks_filtered_textmining, handle)
+
+        return networks_filtered_experiments, networks_filtered_textmining
+
+    def make_df(self, network, filtered_networks_file_out):
 
         t0 = time()
 
         network_id = network
         print(network_id)
 
-        filtered_networks_file_out = os.path.join('networks', 'filtered_string_networks.p')
         with open(filtered_networks_file_out, 'rb') as f:
             networks_filtered = pickle.load(f)
 
