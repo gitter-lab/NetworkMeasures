@@ -75,7 +75,7 @@ if __name__ == '__main__':
     # copy CHTC/get_uniprot_data.py and pid_input_files to HTC.learn
     # transfer results/ from HTC back to networks/full
 
-    # add uniprot node information to networks
+    # add uniprot node information to networks <<<<<<<<<<<<<<< HERE
 
     # ----------- trim networks -----------
 
