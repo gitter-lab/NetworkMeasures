@@ -7,18 +7,25 @@ import pickle
 import pandas as pd
 import networkx as nx
 import measures
-import requests
-import json
 
+# one class:
+# one def per data source
+# can connect to apis
 
-class MakeNetworks:
+class VirusStringNetworks:
 
-    def make_edge_network(self, edges_file, network_out_file):
+    def make_edges(self, edges_file, edges_out_file):
+
+        """
+        Load in the string edges file between proteins and save edges/edge attributes to a pickled dict
+
+        :param edges_file: str, path to file in
+        :param edges_out_file: str, path to file out
+        :return: None, just saves file to location
+        """
 
         # make an empty graph and populate it with edges
-        G = nx.Graph()
-
-        # ------------ edge attributes from viruses.string file ----------------
+        G = nx.Graph() 
 
         with open(edges_file, 'rb') as f:
 
@@ -40,18 +47,25 @@ class MakeNetworks:
                 experiments = int(line[9])
                 database = int(line[11])
                 textmining = int(line[13])
-                combined_score = int(line[15])
 
-                # only keep experimentally verified edges
-                if experiments == 0 and database == 0:
+                # don't load in the transferred scores: Evidence of interaction propagated across species using homology
+
+                # edge score: https://string-db.org/cgi/help.pl
+                combined_score = int(line[13])
+
+                if experiments == 0 and database == 0 and textmining == 0:
                     continue
 
                 # get the actual protein ids
                 p1 = line[0].decode("utf-8")
+                p1_id = '.'.join(p1.split('.')[1:])
+                p1_ncbi = int(p1.split('.')[0])
                 p2 = line[1].decode("utf-8")
+                p2_id = '.'.join(p2.split('.')[1:])
+                p2_ncbi = int(p2.split('.')[0])
 
                 # add edge with attributes
-                G.add_edge(p1, p2,
+                G.add_edge(p1_id, p2_id,
                     neighborhood=neighborhood,
                     fusion=fusion,
                     cooccurence=cooccurence,
@@ -62,35 +76,222 @@ class MakeNetworks:
                     textmining=textmining
                     )
 
+                # add NCBI ids to each node as attributes
+                G.nodes[p1_id]['ncbi_id'] = p1_ncbi
+                G.nodes[p2_id]['ncbi_id'] = p2_ncbi
+
+                G.nodes[p1_id]['organism'] = None
+                G.nodes[p1_id]['uniprot_id'] = None
+                G.nodes[p1_id]['uniprot_id_type'] = None
+                G.nodes[p1_id]['type'] = None
+
+                G.nodes[p2_id]['organism'] = None
+                G.nodes[p2_id]['uniprot_id'] = None
+                G.nodes[p2_id]['uniprot_id_type'] = None
+                G.nodes[p2_id]['type'] = None
+
         # pickle these networks
-        with open(network_out_file, 'wb') as handle:
+        with open(edges_out_file, 'wb') as handle:
             pickle.dump(G, handle)
-
-    def make_node_list_chtc(self, network_in, list_out):
-
-        # load in the list of nodes
-        with open(network_in, 'rb') as f:
-            G = pickle.load(f)
-
-        nodes = list(G.nodes())
-
-        # break into smaller lists for size 2000
-        # 1 sec between https requests = ~30 min each
-        node_groups = [nodes[i:i + 2000] for i in range(0, len(nodes), 2000)]
-
-        # open file in write mode
-        for i, node_group in enumerate(node_groups):
-            with open(list_out + str(i) + '.txt', 'w') as fp:
-                for item in node_group:
-                    fp.write("%s\n" % item)
-            fp.close()
 
         return None
 
-    def split_into_subnetworks(self, G, networks_file_out):
+    def add_node_attributes(self, nodes_dir, edges_out_file, node_out_file):
 
-        # separate into single virus-host networks (some viruses have more than one hosts)
-        G
+        """
+        One node file per organism
+
+        :param nodes_dir: str, path to file in
+        :param id_out_file: str, path to file out
+        :return: None, just save to file
+        """
+
+        # load in graph so far (just edges are added)
+        with open(edges_out_file, 'rb') as f:
+            G = pickle.load(f)
+
+        # ------- Add uniprot IDs for selected hosts ---------
+
+        # get the files from here: https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/by_organism/
+        # *_idmapping.dat.gz
+
+        # list the files for id mapping
+        allfiles = [f for f in os.listdir(nodes_dir) if os.path.isfile(os.path.join(nodes_dir, f))]
+        thesefiles = list(filter(lambda x: re.search(r'.+_idmapping\.dat', x), allfiles))
+
+        # for each file, add in nodes attributes to graph
+        for file in thesefiles:
+
+            organism = file.split('_')[0]
+
+            with open(os.path.join(nodes_dir, file), 'rb') as f:
+
+                # read in line by line (no headers here)
+                """
+                This file has three columns, delimited by tab:
+                1. UniProtKB-AC (TO TRANSLATE TO)
+                2. ID_type 
+                3. ID (WHAT IS IN EDGES FILE)
+                where ID_type is the database name as appearing in UniProtKB cross-references, 
+                and as supported by the ID mapping tool on the UniProt web site, 
+                http://www.uniprot.org/mapping and where ID is the identifier in 
+                that cross-referenced database.
+                """
+
+                for i, line in enumerate(f):
+
+                    line = line.split()
+                    uniprot_id = line[0].decode("utf-8")
+                    id_type = line[1].decode("utf-8")
+                    id = line[2].decode("utf-8")
+
+                    # try to add node attributes, if the ID is found in network
+                    try:
+                        G.nodes[id]['organism'] = organism
+                        G.nodes[id]['uniprot_id'] = uniprot_id
+                        G.nodes[id]['uniprot_id_type'] = id_type
+                        G.nodes[id]['type'] = 'host'
+
+                    except:  # if the node is not in the protein edge network, just skip
+                        continue
+
+        # ------- Add virus names based on NCBI virus taxonomy ---------
+
+        # Copy-pasted "page source" from https://www.ncbi.nlm.nih.gov/Taxonomy/Browser/wwwtax.cgi, saved to file
+
+        # get ncbi data for viruses
+        virus_data_regex = r'''title=".+'''
+
+        # read in raw ncbi file
+        file = open("OLD/data_jar/ncbi_virus_data_raw", "r", encoding='utf-8')
+        virus_data_raw = file.read()
+        file.close()
+
+        virus_data_rows = re.findall(virus_data_regex, virus_data_raw)
+
+        virus_ncbis = {}
+
+        def parse_virus_data(row):
+
+            taxonomy_position_regex = r"""title=\".+\" href"""
+            taxonomy_position = re.findall(taxonomy_position_regex, row)[0]
+            taxonomy_position = taxonomy_position.split('"')[1]
+
+            ncbi_id_regex = r'''id=[0-9]+'''
+            ncbi_id = re.findall(ncbi_id_regex, row)[0]
+            ncbi_id = int(ncbi_id.split('=')[1])
+
+            name_regex = r'''<strong>.+</strong>'''
+            name = re.findall(name_regex, row)[0]
+            name = name.split('>')[1].split('<')[0]
+
+            virus_ncbis[ncbi_id] = {'name': name, 'taxonomy_position': taxonomy_position}
+
+        # populate dictionary
+        list(map(lambda x: parse_virus_data(x), virus_data_rows))
+
+        # loop over the nodes and if the NCBI is a virus, then add the virus node information
+        for node in list(G.nodes):
+
+            node_ncbi = G.nodes[node]['ncbi_id']
+
+            # check if id in dict keys
+            try:
+                name = virus_ncbis[node_ncbi]['name']
+                taxonomy_position = virus_ncbis[node_ncbi]['taxonomy_position']
+
+                # add values to node
+                G.nodes[node]['organism'] = name
+                G.nodes[node]['type'] = 'virus'
+
+            except:
+                continue
+
+        # --------- Add the rest of the NCBI names -----------
+
+        # load in csv
+        with open(os.path.join('OLD/data_jar', 'all_ncbi_taxonomies.txt'), mode='r') as inp:
+            reader = csv.reader(inp, delimiter='\t')
+            ncbi_ids_to_names = {int(rows[1]): rows[2] for rows in reader}
+
+        # loop over the nodes and get names from ncbi id
+        for node in list(G.nodes):
+
+            node_ncbi = G.nodes[node]['ncbi_id']
+            name = ncbi_ids_to_names[node_ncbi]
+
+            # add values to node
+            G.nodes[node]['organism'] = name
+
+            # check to see if virus or host
+            if re.search('PHAG', name.upper()) or re.search('VIR', name.upper()):
+                G.nodes[node]['type'] = 'virus'
+            else:
+                G.nodes[node]['type'] = 'host'
+
+        # pickle these networks
+        with open(node_out_file, 'wb') as handle:
+            pickle.dump(G, handle)
+
+        return None
+
+    def virus_string_networks(self, edges_file, nodes_dir, networks_file_out):
+
+        '''
+
+
+        :param edges_file:
+        :param nodes_dir:
+        :param networks_file_out:
+        :return:
+        '''
+
+        # ----------- Add edges, save to file -----------
+
+        edges_out_file = os.path.join('OLD/pickle_jar', 'string_network_edges.p')
+        self.make_edges(edges_file, edges_out_file)
+
+        # --------- Add node attributes, save to file ---------
+
+        node_out_file = os.path.join('OLD/pickle_jar', 'string_network_nodes.p')
+        self.add_node_attributes(nodes_dir, edges_out_file, node_out_file)
+
+        # ----------- get basic network stats -----------
+
+        # load in the list of nodes
+        with open(node_out_file, 'rb') as f:
+            G = pickle.load(f)
+
+        # overall stats
+        # 370,140 nodes
+        # 18,156,601 edges
+
+        # get stats from node values
+        node_information = dict(G.nodes)
+
+        host_nodes = list(filter(lambda x: node_information[x]['type'] == 'host', node_information.keys()))
+        hosts = sorted(list(set(list(map(lambda x: node_information[x]['organism'], host_nodes)))))
+
+        virus_nodes = list(filter(lambda x: node_information[x]['type'] == 'virus', node_information.keys()))
+        viruses = sorted(list(set(list(map(lambda x: node_information[x]['organism'], virus_nodes)))))
+
+        ncbis = list(set(list(map(lambda x: node_information[x]['ncbi_id'], node_information.keys()))))
+        organisms = list(set(list(map(lambda x: node_information[x]['organism'], node_information.keys()))))
+
+        # n host nodes = 365,437
+        # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
+        # n hosts nodes with uniprot ids = 121,785
+        # n hosts = 64 (11 with uniprot ids)
+
+        # n virus nodes = 4703
+        # n viruses = 184
+
+        # n ncbi ids = 248 = n organisms
+
+        # components = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+        # n components = 4639
+
+        # ----------- get virus subgraphs -----------
 
         subgraphs = {}
 

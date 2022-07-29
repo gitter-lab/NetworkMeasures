@@ -1,0 +1,17 @@
+Workflow:
+Get node properties from Uniprot
+Get node values during infection from ViPR
+Make initial networks in Python → NetworkX objects
+Trim networks with SPRAS
+Network measures → Store values on nodes, edges, whole graph
+Network perturbations → Store values on nodes and edges
+
+Per job:
+One network → SPRAS → Output network
+
+Per job:
+One network → One network measure → Dictionary of resulting values
+How long does each measure take? Some take a long time, might need another solution for larger networks.
+
+Per job:
+One network → Measure complexity → Remove one graph object → Measure complexity → Resulting change (value)

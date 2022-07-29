@@ -6,73 +6,96 @@ import pickle
 import pandas as pd
 import make_networks
 import networkx as nx
-# import multiprocessing
-# from multiprocessing import Pool
-
+import download_files
 
 if __name__ == '__main__':
 
-    # load in classes
-    network_maker = make_networks.VirusStringNetworks()
+    # Get edges from string (make initial networks)
+    # Get node properties from string (add to networks)
+    # Get node properties from Uniprot (add to networks)
+    # Get node values during infection from ViPR (add to networks)
+    # Make initial networks in Python → NetworkX objects (save networks to files)
+    # Trim networks with SPRAS (trim networks, save to files)
+    # Network measures → Store values on nodes, edges, whole graph (add to networks)
+    # Network perturbations → Store values on nodes and edges (add to networks)
 
     # ----------- make directories -----------
 
-    pickle_out = 'pickle_jar'
-    if not os.path.exists(pickle_out):
-        os.makedirs(pickle_out)
+    data = 'data'
+    if not os.path.exists(data):
+        os.makedirs(data)
 
-    data_jar = 'data_jar'
-    if not os.path.exists(data_jar):
-        os.makedirs(data_jar)
+    measures = os.path.join('data', 'measures')
+    if not os.path.exists(measures):
+        os.makedirs(measures)
 
-    networks_jar = 'networks'
-    if not os.path.exists(networks_jar):
-        os.makedirs(networks_jar)
+    input_files = os.path.join('data', 'input_files')
+    if not os.path.exists(input_files):
+        os.makedirs(input_files)
 
-    cytoscape_jar = os.path.join('networks', 'cytoscape')
-    if not os.path.exists(cytoscape_jar):
-        os.makedirs(cytoscape_jar)
+    networks = 'networks'
+    if not os.path.exists(networks):
+        os.makedirs(networks)
 
-    graphspace_jar = os.path.join('networks', 'graphspace')
-    if not os.path.exists(graphspace_jar):
-        os.makedirs(graphspace_jar)
+    cytoscape = os.path.join('networks', 'cytoscape')
+    if not os.path.exists(cytoscape):
+        os.makedirs(cytoscape)
 
-    # ----------- load in the networks -----------
+    full = os.path.join('networks', 'full')
+    if not os.path.exists(full):
+        os.makedirs(full)
 
-    # STRING ONLY
-    data_dir = 'data_jar'
+    trimmed = os.path.join('networks', 'trimmed')
+    if not os.path.exists(trimmed):
+        os.makedirs(trimmed)
+
+    final = os.path.join('networks', 'final')
+    if not os.path.exists(final):
+        os.makedirs(final)
+
+    # ----------- download input files -----------
+
+    source = 'string_edges'
+    file_downloader = download_files.FileDownloader()
+    file_downloader.single_file(source)
+
+    # ----------- make full networks -----------
+
+    network_maker = make_networks.MakeNetworks()
+
+    # save edge-only network to file
+    edge_only_network_file = os.path.join(full, 'edges-only.p')
+    #network_maker.make_edge_network(os.path.join('data', 'input_files', 'string_edges.txt'), edge_only_network_file)
+
+    # get node list for CHTC
+    list_file = os.path.join(full, 'pid_input_files', 'protein_ids_')
+    #network_maker.make_node_list_chtc(edge_only_network_file, list_file)
+
+    # collect uniprot data using CHTC
+    # copy CHTC/get_uniprot_data.py and pid_input_files to HTC.learn
+    # transfer results/ from HTC back to networks/full
+
+    # add uniprot node information to networks
+
+    # ----------- trim networks -----------
+
+    # use SPRAS and ViPR to trim networks
+
+    # ----------- measure networks -----------
+
+    # measure networks
+
+    # ----------- plot results -----------
+
+
+
+
+
+
+
     edges_file = os.path.join(data_dir, 'protein.links.full.v10.5.txt')
     nodes_dir = os.path.join(data_dir)
-    networks_file_out = os.path.join('networks', 'string_networks.p')
-
-    # ----------- explore these networks -----------
-
-    # n edges = 3,311,139
-    # n_edges = sum(list(map(lambda x: len(list(networks[x].edges())), networks)))
-
-    # n host nodes = 365,437
-    # list(filter(lambda x: node_information[x]['type']=='host' and node_information[x]['uniprot_id'] is not None, node_information.keys()))
-    # n hosts nodes with uniprot ids = 121,785
-    # n hosts = 64 (11 with uniprot ids)
-
-    # n virus nodes = 4703
-    # n viruses = 184
-
-    # n ncbi ids = 248 = n organisms
-
-    # components = [G.subgraph(c).copy() for c in nx.connected_components(G)]
-    # n components = 4639
-
-    # number of inferred edges = 2,982,720
-    #inferred_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['experiments'] == 0 and networks[network][x[0]][x[1]]['database'] == 0, list(networks[network].edges())))) for network in networks]
-
-    # number of database edges = 193,146
-    #database_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['database'] != 0, list(networks[network].edges())))) for network in networks]
-
-    # number of experiment edges = 176,594
-    #experiment_edges = [len(list(filter(lambda x: networks[network][x[0]][x[1]]['experiments'] != 0, list(networks[network].edges())))) for network in networks]
-
-    # ----------- Filter the networks -----------
+    networks_file_out = os.path.join('OLD/networks', 'string_networks.p')
 
     # Evidence-based and textmined separate networks
 
@@ -80,10 +103,10 @@ if __name__ == '__main__':
     # 2. Filter nodes to ones that only contain virus-host nodes
     # 3. Take subgraph of those nodes only
 
-    filtered_experiments_networks_file_out = os.path.join('networks', 'filtered_experiments_string_networks.p')
-    filtered_textmining_networks_file_out = os.path.join('networks', 'filtered_textmining_string_networks.p')
-    measured_experiments_networks_file_out = os.path.join('networks', 'measured_experiments_string_networks.p')
-    measured_textmining_networks_file_out = os.path.join('networks', 'measured_textmining_string_networks.p')
+    filtered_experiments_networks_file_out = os.path.join('OLD/networks', 'filtered_experiments_string_networks.p')
+    filtered_textmining_networks_file_out = os.path.join('OLD/networks', 'filtered_textmining_string_networks.p')
+    measured_experiments_networks_file_out = os.path.join('OLD/networks', 'measured_experiments_string_networks.p')
+    measured_textmining_networks_file_out = os.path.join('OLD/networks', 'measured_textmining_string_networks.p')
 
     # check to see if filtered networks are already made
     if not os.path.exists(filtered_experiments_networks_file_out) and not \
@@ -110,7 +133,11 @@ if __name__ == '__main__':
         with open(filtered_textmining_networks_file_out, 'rb') as f:
             filtered_textmining_networks = pickle.load(f)
 
-    # ----------- make df of network measures -----------
+    # ----------- trim networks with SPRAS (CHTC?) -----------
+
+    # download and use proteomic data
+
+    # ----------- measure networks (refactor for CHTC) -----------
 
     # just basic measures
     # add complexity measures
@@ -137,7 +164,7 @@ if __name__ == '__main__':
 
         # load in the csv of measures
         try:
-            measures_data = pd.read_csv(os.path.join('data_jar', 'measures_experiments_' + network_id + '.csv'))
+            measures_data = pd.read_csv(os.path.join('OLD/data_jar', 'measures_experiments_' + network_id + '.csv'))
         except:
             continue
 

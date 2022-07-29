@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # import data files for network measures
-files = os.listdir('data_jar')
+files = os.listdir('OLD/data_jar')
 files = list(filter(lambda x: re.search('measures', x), files))
 
 # join all files together in one df
@@ -26,7 +26,7 @@ measures = ['degree_centrality',  # don't normalize, is just degree / (n_nodes -
 
 for file in files:
 
-    df_part = pd.read_csv(os.path.join('data_jar', file))
+    df_part = pd.read_csv(os.path.join('OLD/data_jar', file))
     df_part['network_id'] = file.split('measures_')[1].split('.csv')[0]
     df_part = df_part.drop(['Unnamed: 0'], axis=1)
 
