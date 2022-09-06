@@ -68,14 +68,22 @@ if __name__ == '__main__':
     #network_maker.make_edge_network(os.path.join('data', 'input_files', 'string_edges.txt'), edge_only_network_file)
 
     # get node list for CHTC
-    list_file = os.path.join(full, 'pid_input_files', 'protein_ids_')
-    #network_maker.make_node_list_chtc(edge_only_network_file, list_file)
+    #node_list_file_basename = os.path.join(full, 'pid_input_files', 'protein_ids_')
+    #network_maker.make_node_list_chtc(edge_only_network_file, node_list_file_basename)
 
     # collect uniprot data using CHTC
     # copy CHTC/get_uniprot_data.py and pid_input_files to HTC.learn
     # transfer results/ from HTC back to networks/full
 
-    # add uniprot node information to networks <<<<<<<<<<<<<<< HERE
+    # add uniprot node information to networks
+    whole_network_file = os.path.join(full, 'whole-network.p')
+    #network_maker.add_uniprot_node_data(edge_only_network_file, whole_network_file)
+
+    # separate this full network into virus-host pairs (1:1)
+    whole_11_networks = os.path.join(full, 'whole-11-networks.p')
+    network_maker.split_into_subnetworks(whole_network_file, whole_11_networks)
+    quit()
+
 
     # ----------- trim networks -----------
 

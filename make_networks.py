@@ -87,10 +87,21 @@ class MakeNetworks:
 
         return None
 
-    def split_into_subnetworks(self, G, networks_file_out):
+    def split_into_subnetworks(self, network_file_out, networks_file_out):
 
-        # separate into single virus-host networks (some viruses have more than one hosts)
-        G
+        with open(network_file_out, 'rb') as f:
+            whole_network = pickle.load(f)
+
+        # make list of unique viruses in here  # HERE! <<<<<<<<<<<<<<<
+        names = []
+        node_data = whole_network.nodes()._nodes
+        for node in node_data.keys():
+            try:
+                name = node_data[node]['uniprot_data']['organism']['taxonId']
+                names.append(name)
+                names = list(set(names))
+            except:
+                continue
 
         subgraphs = {}
 
@@ -432,3 +443,28 @@ class MakeNetworks:
         print(dt)
 
         return None
+
+    def add_uniprot_node_data(self, edge_only_network_file, whole_network_file):
+
+        # load in full network
+        with open(edge_only_network_file, 'rb') as file:
+            full_network = pickle.load(file)
+
+        # load in uniprot files one by one
+        node_data_files = os.listdir(os.path.join('networks', 'full', 'uniprot_node_data'))
+
+        for file in node_data_files:
+            with open(os.path.join('networks', 'full', 'uniprot_node_data', file)) as f:
+                try:
+                    nodes_data = json.load(f)  # some malformed json from api response... try again?
+                except:
+                    continue
+
+            for string_id in nodes_data.keys():
+                string_id = string_id[:-1]
+                full_network.nodes(string_id)
+                full_network.nodes[string_id]['uniprot_data'] = nodes_data[string_id + '\n']
+
+        # pickle the resulting file
+        with open(whole_network_file, 'wb') as handle:
+            pickle.dump(full_network, handle)
