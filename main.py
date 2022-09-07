@@ -25,6 +25,7 @@ if __name__ == '__main__':
     if not os.path.exists(data):
         os.makedirs(data)
 
+
     measures = os.path.join('data', 'measures')
     if not os.path.exists(measures):
         os.makedirs(measures)
